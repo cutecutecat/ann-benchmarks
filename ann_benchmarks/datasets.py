@@ -553,6 +553,37 @@ def movielens10m(out_fn: str) -> None:
 def movielens20m(out_fn: str) -> None:
     movielens("ml-20m.zip", "ml-20m/ratings.csv", out_fn, ",", True)
 
+def cohere1m(out_fn: str) -> None:
+    wikipedia_cohere(1_000_000, 1_000, True, out_fn)
+
+def cohere10m(out_fn: str) -> None:
+    wikipedia_cohere(10_000_000, 1_000, True, out_fn)
+
+def cohere50m(out_fn: str) -> None:
+    wikipedia_cohere(50_000_000, 1_000, False, out_fn)
+
+def wikipedia_cohere(n: int, test_size: int, en_only: bool, out_fn: str):
+    from sklearn.model_selection import train_test_split
+    from datasets import load_dataset
+    import numpy as np
+
+    if en_only:
+        langs = ["en"]
+    else:
+        langs = ["en", "de"]
+    embeddings = []
+    for lang in langs:
+        data = load_dataset("Cohere/wikipedia-2023-11-embed-multilingual-v3", lang, split="train")
+        if n is not None and n >= 100_000 and n + test_size <= data.shape[0]:
+            data = data.select(range(n+test_size))
+
+        embeddings.extend(data.to_pandas()['emb'].to_numpy())
+    embeddings = np.vstack(embeddings).reshape((-1, 1024))
+
+    X_train, X_test = train_test_split(embeddings, train_size=n, test_size=test_size, random_state=42)
+
+    write_output(X_train, X_test, out_fn, "angular")
+
 def dbpedia_entities_openai_1M(out_fn, n = None):
     from sklearn.model_selection import train_test_split
     from datasets import load_dataset
@@ -598,6 +629,9 @@ DATASETS: Dict[str, Callable[[str], None]] = {
     "movielens1m-jaccard": movielens1m,
     "movielens10m-jaccard": movielens10m,
     "movielens20m-jaccard": movielens20m,
+    "cohere-1m-en-angular":cohere1m,
+    "cohere-10m-en-angular":cohere10m,
+    "cohere-50m-multilingual-angular":cohere50m,
 }
 
 DATASETS.update({
